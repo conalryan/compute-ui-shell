@@ -46,6 +46,8 @@ export class ComputeUiShell extends LitElement {
 
     await this.teardown();
 
+    // While await this.teardown() is in flight, another syncFromLocation()
+    // (e.g. popstate or navigate) can run and bump this.loadGeneration again
     if (generation !== this.loadGeneration) return;
 
     this.appName = nextName;
@@ -60,6 +62,8 @@ export class ComputeUiShell extends LitElement {
     // Wait for the outlet to exist in the light/shadow tree after re-render
     await this.updateComplete;
 
+    // While await this.updateComplete is in flight, another syncFromLocation()
+    // (e.g. popstate or navigate) can run and bump this.loadGeneration again
     if (generation !== this.loadGeneration) return;
 
     const outlet = this.outletRef.value;
@@ -80,10 +84,7 @@ export class ComputeUiShell extends LitElement {
       console.error(err);
       if (generation !== this.loadGeneration) return;
       outlet.replaceChildren();
-      this.error =
-        err instanceof Error
-          ? err.message
-          : `Failed to load ${nextName}`;
+      this.error = err instanceof Error ? err.message : `Failed to load ${nextName}`;
       this.loaded = null;
     } finally {
       if (generation === this.loadGeneration) {
@@ -190,9 +191,7 @@ export class ComputeUiShell extends LitElement {
       <div class="shell">
         <header>
           <a href="/" @click=${this.onHomeClick}>Compute UI Shell</a>
-          ${slug
-            ? html`<span aria-current="page">${slug}</span>`
-            : nothing}
+          ${slug ? html`<span aria-current="page">${slug}</span>` : nothing}
           <span class="meta">${APPS_VERSION}</span>
         </header>
         <main>

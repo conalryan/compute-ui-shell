@@ -1,0 +1,12 @@
+{
+  "name": "compute-ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter compute-ui-shell dev",
+    "build": "pnpm -r build",
+    "build:apps": "pnpm --filter \"./packages/compute-ui-product-*\" build",
+    "build:shell": "pnpm --filter compute-ui-shell build"
+  }
+}

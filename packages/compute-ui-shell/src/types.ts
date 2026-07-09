@@ -1,5 +1,14 @@
 /**
- * Contract every remote app's entry.js should satisfy.
+ * Published next to each app build as `deploy.json`.
+ * The shell fetches this with `cache: "no-store"`, then loads `entry`.
+ */
+export interface AppDeployManifest {
+  /** Filename relative to the version folder, or an absolute URL */
+  entry: string;
+}
+
+/**
+ * Contract every remote app's entry module should satisfy.
  *
  * Preferred (Lit, Angular Elements, react-to-web-component):
  *   register custom element `compute-ui-<product>` as a side effect of the module.

@@ -1,14 +1,61 @@
 import { APPS_BASE_URL, APPS_VERSION } from "./config.ts";
 import { appBasePath } from "./app-id.ts";
 import type {
+  AppDeployManifest,
   AppMountContext,
   AppUnmount,
   LoadedApp,
   MicrofrontendModule,
 } from "./types.ts";
 
-export function resolveEntryUrl(appName: string): string {
-  return `${APPS_BASE_URL}/${appName}/${APPS_VERSION}/entry.js`;
+function versionBase(appName: string): string {
+  return `${APPS_BASE_URL}/${appName}/${APPS_VERSION}`;
+}
+
+/**
+ * Resolve the module URL for an app.
+ *
+ * Preferred: short-lived `deploy.json` pointing at a content-hashed entry
+ * (safe for Akamai + browser cache; shell URL stays stable across deploys).
+ *
+ * Fallback: `{versionBase}/entry.js` for local/dev or older publishes.
+ */
+export async function resolveEntryUrl(appName: string): Promise<string> {
+  const base = versionBase(appName);
+  const manifest = await fetchDeployManifest(`${base}/deploy.json`);
+
+  if (manifest?.entry) {
+    if (/^https?:\/\//i.test(manifest.entry)) {
+      return manifest.entry;
+    }
+    return `${base}/${manifest.entry.replace(/^\/+/, "")}`;
+  }
+
+  return `${base}/entry.js`;
+}
+
+async function fetchDeployManifest(
+  url: string,
+): Promise<AppDeployManifest | null> {
+  try {
+    // Never reuse a cached pointer — this is the only mutable URL the shell hits.
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return null;
+
+    const data = (await res.json()) as unknown;
+    if (
+      !data ||
+      typeof data !== "object" ||
+      typeof (data as AppDeployManifest).entry !== "string" ||
+      !(data as AppDeployManifest).entry
+    ) {
+      return null;
+    }
+
+    return data as AppDeployManifest;
+  } catch {
+    return null;
+  }
 }
 
 function isCustomElementDefined(tagName: string): boolean {
@@ -43,7 +90,7 @@ export async function loadAndMountApp(
   appName: string,
   container: HTMLElement,
 ): Promise<LoadedApp> {
-  const entryUrl = resolveEntryUrl(appName);
+  const entryUrl = await resolveEntryUrl(appName);
   const context: AppMountContext = {
     appName,
     basePath: appBasePath(appName),

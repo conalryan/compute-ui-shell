@@ -214,9 +214,9 @@ export class ComputeUiShell extends LitElement {
         <div class="panel">
           <h1>Compute UI Shell</h1>
           <p>
-            Open a product route to load an application from object storage,
+            Open a product route to load an application via Akamai CDN,
             e.g. <code>/product-a</code> →
-            <code>${APPS_BASE_URL}/compute-ui-product-a/${APPS_VERSION}/entry.js</code>
+            <code>${APPS_BASE_URL}/compute-ui-product-a/${APPS_VERSION}/deploy.json</code>
           </p>
         </div>
       `;

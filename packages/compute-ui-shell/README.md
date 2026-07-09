@@ -1,37 +1,45 @@
 # Compute UI Shell
 
-Lit-based host that loads product applications from Azure Blob Storage (or a CDN in front of it) based on the URL.
+Lit-based host that loads product applications through **Akamai CDN** (fronting object storage) based on the URL.
+
+The shell always resolves a **stable channel URL** (`…/latest/deploy.json`). App teams publish new builds under that channel without changing or redeploying the shell.
 
 ## Routing convention
 
-| Browser URL | App name | Blob entry |
+| Browser URL | App name | CDN entry |
 | --- | --- | --- |
-| `/product-a` | `compute-ui-product-a` | `{base}/compute-ui-product-a/{version}/entry.js` |
+| `/product-a` | `compute-ui-product-a` | `{base}/compute-ui-product-a/{version}/deploy.json` → hashed `entry-….js` |
 | `/compute-ui-product-a` | `compute-ui-product-a` | same |
 
 The first path segment is the product. The shell always normalizes to `compute-ui-<product>`.
 
-Configure storage via env (see `.env.example`):
+Configure the CDN via env (see `.env.example`):
 
 ```bash
-VITE_APPS_BASE_URL=https://<account>.blob.core.windows.net/apps
+VITE_APPS_BASE_URL=https://<akamai-hostname>/apps
 VITE_APPS_VERSION=latest
 ```
 
+Keep `VITE_APPS_VERSION=latest` in production so individual app deploys never require a shell rebuild. Pin a version folder only for freezes or rollbacks.
+
 ## App contract
 
-Every product publishes an ES module at:
+Every product publishes under:
 
 ```text
-{VITE_APPS_BASE_URL}/compute-ui-<product>/{VITE_APPS_VERSION}/entry.js
+{VITE_APPS_BASE_URL}/compute-ui-<product>/{VITE_APPS_VERSION}/
+  deploy.json          # short-lived pointer: { "entry": "entry-<hash>.js" }
+  entry-<hash>.js      # content-hashed ES module (long-cacheable)
 ```
+
+The shell fetches `deploy.json` with `cache: "no-store"`, then dynamically imports the hashed entry. If `deploy.json` is missing, it falls back to `entry.js` (local/dev or legacy publishes).
 
 ### Option A — Custom element (preferred for Lit, Angular Elements, wrapped React)
 
 Side-effect register a custom element whose tag matches the app name:
 
 ```ts
-// compute-ui-product-a entry.js
+// compute-ui-product-a entry
 @customElement("compute-ui-product-a")
 export class ComputeUiProductA extends LitElement {
   @property({ attribute: "base-path" })
@@ -47,7 +55,7 @@ The shell creates `<compute-ui-product-a base-path="/product-a">` after the modu
 
 ### Option B — Imperative mount (plain React / Angular bootstrap)
 
-Export `mount` (and optionally `unmount`) from `entry.js`:
+Export `mount` (and optionally `unmount`) from the entry module:
 
 ```ts
 import { createRoot, type Root } from "react-dom/client";
@@ -87,6 +95,19 @@ export async function mount(
 
 If both a custom element and `mount` exist, **`mount` wins**.
 
+## Caching (why `entry.js` alone is risky)
+
+Yes — a **stable, unhashed** `entry.js` URL will be cached by Akamai and browsers. After a deploy that overwrites the same path, users can keep running the old module until TTL expires or a purge runs.
+
+Recommended split:
+
+| Asset | Cache-Control | Notes |
+| --- | --- | --- |
+| `deploy.json` | `no-store` (or very short TTL + purge on deploy) | Only mutable pointer the shell hits |
+| `entry-<hash>.js` (+ chunks/assets) | `public, max-age=31536000, immutable` | Safe to cache forever; URL changes each build |
+
+Do **not** put a long TTL on an unhashed `entry.js` unless you purge Akamai (and accept browser cache risk) on every app deploy.
+
 ## Framework notes
 
 - **Lit** — register `compute-ui-<product>` directly.
@@ -95,11 +116,14 @@ If both a custom element and `mount` exist, **`mount` wins**.
 
 Child apps should treat `base-path` / `context.basePath` as their router basename so deep links like `/product-a/settings` keep working under the shell.
 
-## Azure Blob checklist
+## Akamai / origin checklist
 
+- Origin: object storage (or equivalent) behind the Akamai property
 - CORS: allow the shell origin, methods `GET`/`HEAD`
-- Correct MIME types (`application/javascript`, `text/css`)
-- Upload each build under `compute-ui-<product>/<version>/` and promote `latest` (or pin `VITE_APPS_VERSION`)
+- Correct MIME types (`application/javascript`, `application/json`, `text/css`)
+- Upload each build under `compute-ui-<product>/<version>/` with hashed entry + `deploy.json`
+- Promote by updating the `latest` folder’s `deploy.json` (shell stays on `VITE_APPS_VERSION=latest`)
+- Optionally purge `…/latest/deploy.json` on deploy if any edge TTL remains
 
 ## Example apps
 
@@ -109,7 +133,7 @@ Child apps should treat `base-path` / `context.basePath` as their router basenam
 | `/product-react` | `packages/compute-ui-product-react` | Imperative `mount` (React) |
 | `/product-angular` | `packages/compute-ui-product-angular` | Imperative `mount` (Angular) |
 
-Each app builds an ES module to `.local-apps/compute-ui-<product>/latest/entry.js`.
+Each app builds to `.local-apps/compute-ui-<product>/latest/` (`deploy.json` + hashed entry).
 
 ## Local development
 

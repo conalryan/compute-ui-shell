@@ -26,10 +26,23 @@ function serveLocalApps(): Plugin {
           ? "text/css"
           : filePath.endsWith(".js") || filePath.endsWith(".mjs")
             ? "text/javascript"
-            : "application/octet-stream";
+            : filePath.endsWith(".json")
+              ? "application/json"
+              : "application/octet-stream";
+
+        const isPointer =
+          filePath.endsWith("deploy.json") ||
+          /[/\\]entry\.js$/.test(filePath);
 
         res.setHeader("Content-Type", contentType);
         res.setHeader("Access-Control-Allow-Origin", "*");
+        // Match production Akamai guidance: never long-cache the mutable pointer.
+        res.setHeader(
+          "Cache-Control",
+          isPointer
+            ? "no-store"
+            : "public, max-age=31536000, immutable",
+        );
         createReadStream(filePath).pipe(res);
       });
     },

@@ -1,4 +1,4 @@
-import { APP_NAME_PREFIX } from "./config.ts";
+import { APP_NAME_PREFIX } from "./config";
 
 /**
  * Top-level route → canonical app name.
@@ -18,9 +18,7 @@ export function normalizeAppName(segment: string): string {
 
 /** Product slug used as the public route, e.g. compute-ui-product-a → product-a */
 export function productSlugFromAppName(appName: string): string {
-  return appName.startsWith(APP_NAME_PREFIX)
-    ? appName.slice(APP_NAME_PREFIX.length)
-    : appName;
+  return appName.startsWith(APP_NAME_PREFIX) ? appName.slice(APP_NAME_PREFIX.length) : appName;
 }
 
 /** Base path the child app should use for its own client router */

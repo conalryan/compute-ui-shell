@@ -1,12 +1,12 @@
-import { appBasePath } from "./app-id.ts";
-import { APPS_BASE_URL } from "./config.ts";
+import { appBasePath } from "./app-id";
+import { APPS_BASE_URL } from "./config";
 import type {
   AppDeployManifest,
   AppMountContext,
   AppUnmount,
   LoadedApp,
   MicrofrontendModule,
-} from "./types.ts";
+} from "./types";
 
 function appBase(appName: string): string {
   return `${APPS_BASE_URL}/${appName}`;

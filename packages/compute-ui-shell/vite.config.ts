@@ -30,18 +30,14 @@ function serveLocalApps(): Plugin {
               ? "application/json"
               : "application/octet-stream";
 
-        const isPointer =
-          filePath.endsWith("deploy.json") ||
-          /[/\\]entry\.js$/.test(filePath);
+        const isPointer = filePath.endsWith("deploy.json") || /[/\\]entry\.js$/.test(filePath);
 
         res.setHeader("Content-Type", contentType);
         res.setHeader("Access-Control-Allow-Origin", "*");
         // Match production Akamai guidance: never long-cache the mutable pointer.
         res.setHeader(
           "Cache-Control",
-          isPointer
-            ? "no-store"
-            : "public, max-age=31536000, immutable",
+          isPointer ? "no-store" : "public, max-age=31536000, immutable",
         );
         createReadStream(filePath).pipe(res);
       });
@@ -50,6 +46,13 @@ function serveLocalApps(): Plugin {
 }
 
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, "src/compute-ui-portal.ts"),
+      },
+    },
+  },
   plugins: [serveLocalApps()],
   server: {
     port: 5173,
